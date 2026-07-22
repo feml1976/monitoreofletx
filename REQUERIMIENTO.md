@@ -20,19 +20,23 @@
 
 Este documento define el *cómo*; el *qué* debe completarse ANTES de escribir código (proceso §11.2 del documento técnico de Controlt). Ningún desarrollo arranca sin esta tabla llena:
 
-| Definición | Valor (COMPLETAR con el solicitante) |
+| Definición | Valor |
 |---|---|
-| Pregunta de negocio que responde el dataset | COMPLETAR |
-| Consulta SQL de extracción (o tablas/campos del origen) | COMPLETAR |
-| Clave natural del registro (unicidad) | COMPLETAR |
-| Enriquecimientos/derivaciones requeridos | COMPLETAR |
-| Frecuencia de actualización aceptable | COMPLETAR (default de la receta: 15 min) |
-| Ventana móvil de sincronización | COMPLETAR (default: 7 días) |
-| Histórico requerido (fecha de inicio del backfill) | COMPLETAR |
-| Consumidores y forma de consumo | COMPLETAR |
-| ¿Contiene datos personales? (Ley 1581) | COMPLETAR — si sí: decidir inclusión/seudonimización/exclusión por campo |
+| Pregunta de negocio que responde el dataset | Radiografía de solicitudes (`requests`) de Fletx en ventana móvil de 7 días: estado, vehículo/trailer, conductor, cliente, ruta, plantas de carga/descarga, cumplidos, liquidación/anticipos, y evolución completa de eventos del viaje. |
+| Consulta SQL de extracción | `monitoreofletx-consulta-base-v4.sql` (raíz del repo `monitoreofletx`) — validada contra Fletx real, acordada con Analítica. **Antes de commitear/usar en producción: remover el `WHERE rq.id IN (...)` de prueba puntual que trae la copia de trabajo.** |
+| Clave natural del registro (unicidad) | `rq.id` (`requests.id`) — columna `solicitud_request` en el SELECT |
+| Enriquecimientos/derivaciones requeridos | `eventos_detalle` (histórico de eventos como JSON — evento_id, fecha_hora, estado_anterior, estado_actual, comentario), cumplidos del viaje, liquidación vigente/anticipos girados, plantas origen/destino (multi-dirección vía `booking_addresses`), cliente que paga/recibe |
+| Frecuencia de actualización aceptable | 15 min (default de la receta, heredado de Controlt) — COMPLETAR solo si Analítica requiere una cadencia distinta |
+| Ventana móvil de sincronización | 7 días — confirmada y validada con datos reales de Fletx |
+| Histórico requerido (fecha de inicio del backfill) | COMPLETAR — pendiente de definir con el solicitante |
+| Consumidores y forma de consumo | COMPLETAR — pendiente confirmar (¿Grafana/Metabase como Controlt, o consumo directo SQL por Analítica sobre el datamart?) |
+| ¿Contiene datos personales? (Ley 1581) | Sí — cédulas, nombres, teléfonos, correos y contactos de emergencia de conductores y propietarios; adicionalmente `eventos_detalle.comentario` es texto libre y puede contener datos personales incidentales. Tratamiento por campo: **COMPLETAR** (pendiente, mismo bloqueante que Controlt no resolvió al 100%) |
 
-**Gate de viabilidad (lo ejecuta Claude Desktop vía conectores, solo lectura):** existencia de tablas/columnas en Fletx real, privilegios SELECT del usuario de lectura sobre ellas, cardinalidades de los JOIN (lección Controlt: `consecutive_ministries` era 1:N no documentado), tipos de datos vs. supuestos del mapper, volumetría de la ventana y plan de ejecución del SELECT.
+**Gate de viabilidad — resultado (ejecutado por Claude Desktop vía conector de solo lectura contra Fletx real):**
+- Bugs corregidos en la consulta original: `businessroutes` unido por FK equivocada (habría dado ruta/origen/destino incorrectos en el 100% de las filas), columnas duplicadas/mal mapeadas, filtro de ventana ausente, INNER JOINs que ocultaban filas con captura incompleta, `consecutive_ministries` con cardinalidad 1:N no documentada (misma clase de bug que ya mordió a Controlt).
+- `eventos_detalle` (JSON): la consulta de ejemplo de Analítica usaba INNER JOIN contra `requeststatuses` en ambos lados, lo que descarta el evento de creación en el 100% de los requests (3.228/3.228 en la ventana tienen exactamente un evento sin estado anterior — es el evento génesis, no una anomalía). Corregido a LEFT JOIN. Volumetría: 9,07 eventos/request en promedio, máx. 31; payload JSON ≈1,5-2 KB/request en promedio. Costo de performance marginal (índice existente sobre `events.request_id`; el costo dominante del plan es el filtro base de `requests.created_at`, preexistente).
+- `plantas` (planta_origen/planta_destino vía `booking_addresses`→`addresses`): validado sin riesgo de fan-out (CTE agregado por `booking_id` antes del JOIN, mismo patrón que `cumplidos`/`liquidacion`). 2.739 bookings en ventana, promedio 2,01 direcciones/booking, máx. 4; 19 bookings con múltiples plantas de carga y 12 con múltiples de descarga, resueltos con `STRING_AGG(DISTINCT ...)`; 0 filas con `address_id` nulo.
+- Pendientes abiertos (no bloqueantes para arrancar Etapa A, sí para el criterio de aceptación final): FK de `bookings.paga_id`, remitente/destinatario RNDC (`freight_ministries`), y el tratamiento de datos personales campo por campo (Ley 1581).
 
 ## 3. Actor (para Claude Code)
 
