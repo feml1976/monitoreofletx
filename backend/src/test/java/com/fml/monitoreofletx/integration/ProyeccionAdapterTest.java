@@ -1,6 +1,7 @@
 package com.fml.monitoreofletx.integration;
 
 import com.fml.monitoreofletx.sync.application.port.out.ProyeccionPort;
+import com.fml.monitoreofletx.sync.domain.ClaveNatural;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * Verifica: INSERT, idempotencia (sin cambios -> 0 filas), UPDATE con hash distinto,
  * clasificación correcta de insertados/actualizados/omitidos, resurrección de
- * soft-deletes (marcarObsoletos se prueba en el Paso 3).
+ * soft-deletes y marcarObsoletos (anti-join via unnest, ventana por fecha_solicitud).
  */
 @SpringBootTest
 class ProyeccionAdapterTest {
@@ -122,7 +123,100 @@ class ProyeccionAdapterTest {
                 .isNull();
     }
 
+    // --- marcarObsoletos (Paso 3) ---
+
+    @Test
+    void marcarObsoletos_solicitudAusenteDentroDeVentana_marcaDeletedAt() {
+        var fecha = LocalDateTime.of(2025, 3, 10, 8, 0);
+        var solicitud = con(base(9101L), "fechaSolicitud", fecha);
+        proyeccionPort.upsert(List.of(solicitud));
+
+        int marcados = proyeccionPort.marcarObsoletos(fecha.minusDays(1), fecha.plusDays(1), List.of());
+
+        assertThat(marcados).isEqualTo(1);
+        assertThat(deletedAtPorSolicitud(9101L)).isNotNull();
+    }
+
+    @Test
+    void marcarObsoletos_resurreccion_upsertLimpiaDeletedAt() {
+        var fecha = LocalDateTime.of(2025, 3, 11, 8, 0);
+        var solicitud = con(base(9102L), "fechaSolicitud", fecha);
+        proyeccionPort.upsert(List.of(solicitud));
+        proyeccionPort.marcarObsoletos(fecha.minusDays(1), fecha.plusDays(1), List.of());
+        assertThat(deletedAtPorSolicitud(9102L)).isNotNull();
+
+        // La solicitud reaparece en un ciclo posterior con los mismos datos de negocio
+        // (row_hash identico) — el upsert debe limpiar deleted_at igual.
+        proyeccionPort.upsert(List.of(solicitud));
+
+        assertThat(deletedAtPorSolicitud(9102L)).isNull();
+    }
+
+    @Test
+    void marcarObsoletos_filaFueraDeVentana_quedaIntacta() {
+        var fecha = LocalDateTime.of(2025, 1, 1, 8, 0); // muy anterior a la ventana evaluada
+        var solicitud = con(base(9103L), "fechaSolicitud", fecha);
+        proyeccionPort.upsert(List.of(solicitud));
+
+        var ventanaInicio = LocalDateTime.of(2025, 6, 1, 0, 0);
+        var ventanaFin    = LocalDateTime.of(2025, 6, 8, 0, 0);
+
+        int marcados = proyeccionPort.marcarObsoletos(ventanaInicio, ventanaFin, List.of());
+
+        assertThat(marcados).isZero();
+        assertThat(deletedAtPorSolicitud(9103L)).isNull();
+    }
+
+    @Test
+    void marcarObsoletos_filaYaMarcada_esIdempotente() {
+        var fecha = LocalDateTime.of(2025, 3, 12, 8, 0);
+        var solicitud = con(base(9104L), "fechaSolicitud", fecha);
+        proyeccionPort.upsert(List.of(solicitud));
+
+        var ventanaInicio = fecha.minusDays(1);
+        var ventanaFin    = fecha.plusDays(1);
+        proyeccionPort.marcarObsoletos(ventanaInicio, ventanaFin, List.of());
+        LocalDateTime primerDeletedAt = deletedAtPorSolicitud(9104L);
+
+        int marcadosSegundaVez = proyeccionPort.marcarObsoletos(ventanaInicio, ventanaFin, List.of());
+
+        assertThat(marcadosSegundaVez).isZero();
+        assertThat(deletedAtPorSolicitud(9104L)).isEqualTo(primerDeletedAt);
+    }
+
+    @Test
+    void marcarObsoletos_solicitudVigente_noSeToca() {
+        var fecha = LocalDateTime.of(2025, 3, 13, 8, 0);
+        var solicitud = con(base(9105L), "fechaSolicitud", fecha);
+        proyeccionPort.upsert(List.of(solicitud));
+
+        int marcados = proyeccionPort.marcarObsoletos(
+                fecha.minusDays(1), fecha.plusDays(1), List.of(ClaveNatural.de(solicitud)));
+
+        assertThat(marcados).isZero();
+        assertThat(deletedAtPorSolicitud(9105L)).isNull();
+    }
+
+    @Test
+    void vistaVigente_excluyeFilasMarcadasComoObsoletas() {
+        var fecha = LocalDateTime.of(2025, 3, 14, 8, 0);
+        var solicitud = con(base(9106L), "fechaSolicitud", fecha);
+        proyeccionPort.upsert(List.of(solicitud));
+
+        proyeccionPort.marcarObsoletos(fecha.minusDays(1), fecha.plusDays(1), List.of());
+
+        assertThat(contarEnVistaVigentePorSolicitud(9106L)).isZero();
+        assertThat(contarPorSolicitud(9106L)).isEqualTo(1); // sigue en la tabla base, solo se excluye de la vista
+    }
+
     // ------------------------------------------------------------------
+
+    private int contarEnVistaVigentePorSolicitud(long solicitudRequest) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM test_monitoreo_fletx.v_monitoreo_fletx_vigente WHERE solicitud_request = :id",
+                Map.of("id", solicitudRequest), Integer.class);
+        return count == null ? 0 : count;
+    }
 
     private void marcarComoObsoletaManualmente(long solicitudRequest) {
         jdbc.update(
