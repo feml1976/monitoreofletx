@@ -1,7 +1,8 @@
 -- =============================================================================
 -- MonitoreoFletx — Consulta base v4 (radiografía de solicitudes Fletx), adaptada
--- para el ETL: ventana parametrizada por named parameters (:fecha_inicio,
--- :fecha_fin, half-open [inicio, fin)) en vez de now() - interval '7 days'.
+-- para el ETL: ventana parametrizada por named parameters de fecha inicio/fin
+-- (half-open, fecha inicio incluida y fecha fin excluida) en vez de now() menos
+-- un intervalo fijo de 7 dias.
 --
 -- Sin prefijo de schema: el search_path de la conexión determina el schema.
 --   prod  → search_path = public          (default PostgreSQL)
@@ -239,7 +240,7 @@ SELECT
     -- json_agg devuelve json, no jsonb (ver docs/verificacion-tipos-destino-v4.md
     -- ⚠️ eventos_detalle): se castea explicitamente para que el driver JDBC
     -- entregue el mismo texto que espera la columna destino (jsonb).
-    ej.eventos_detalle::jsonb      AS eventos_detalle,            -- [A7]
+    CAST(ej.eventos_detalle AS jsonb) AS eventos_detalle,         -- [A7]
     -- ─── Cumplidos ─── [A1]
     cum.cumplidos_total, cum.cumplidos_ok, cum.cumplidos_anulados,
     cum.fecha_ultimo_cumplido, cum.viaje_cumplido,
@@ -294,4 +295,5 @@ LEFT JOIN fin_cargue fc        ON fc.request_id = rq.id
 LEFT JOIN ministries cm        ON cm.request_id = rq.id               -- [B7]
 LEFT JOIN cumplidos cum        ON cum.request_id = rq.id              -- [A1]
 LEFT JOIN liquidacion liq      ON liq.request_id = rq.id              -- [A2]
-LEFT JOIN plantas pl           ON pl.booking_id = bk.id;               -- [A8]
+LEFT JOIN plantas pl           ON pl.booking_id = bk.id -- [A8]
+;
