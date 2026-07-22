@@ -1,0 +1,33 @@
+# Configuracion para tests de integracion.
+# Requiere docker-compose.test.yml activo (monitoreofletx-postgres-test en 5438).
+# Ambos DataSource apuntan a la misma instancia de test: monitoreofletx_test.
+monitoreofletx:
+  datasource:
+    datamart:
+      jdbc-url: jdbc:postgresql://localhost:5438/monitoreofletx_test
+      username: test
+      password: test
+      pool-name: test-datamart-pool
+      maximum-pool-size: 3
+      minimum-idle: 1
+    origin:
+      jdbc-url: jdbc:postgresql://localhost:5438/monitoreofletx_test
+      username: test
+      password: test
+      pool-name: test-origin-pool
+      maximum-pool-size: 2
+      minimum-idle: 1
+      read-only: true
+      initialization-fail-timeout: -1
+      # Redirige el search_path al schema de fixtures del origen.
+      # En prod el search_path es 'public' (default PostgreSQL).
+      connection-init-sql: "SET search_path TO test_origen_mf"
+
+  flyway:
+    schema: test_monitoreo_fletx
+
+  sync:
+    ventana-dias: 7
+    cron: "0 0/15 * * * *"
+    lock-at-most-for: PT14M
+    lock-at-least-for: PT1M

@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: monitoreofletx
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  main:
+    # Mantener tipo servlet para que el management server (actuator 8098) arranque.
+    # El puerto principal se deshabilita con server.port=-1: el job sigue siendo headless.
+    web-application-type: servlet
+  # DataSource y Flyway gestionados manualmente (DataSourceConfig, FlywayConfig).
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration
+
+server:
+  port: -1   # no escucha el puerto principal; el job es headless
+
+management:
+  server:
+    port: ${MANAGEMENT_PORT:8098}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+monitoreofletx:
+  # --- DataSources ---
+  # Fail-fast (REQUERIMIENTO.md §9.1): HOST/PORT/NAME/USERNAME/PASSWORD de ambas BDs
+  # SIN default. Sin la variable, el arranque falla explicito (no cae a localhost).
+  datasource:
+    datamart:
+      jdbc-url: jdbc:postgresql://${DATAMART_DB_HOST}:${DATAMART_DB_PORT}/${DATAMART_DB_NAME}?sslmode=${DATAMART_DB_SSLMODE:prefer}
+      username: ${DATAMART_DB_USERNAME}
+      password: ${DATAMART_DB_PASSWORD}
+      pool-name: monitoreofletx-datamart-pool
+      maximum-pool-size: 5
+      minimum-idle: 1
+    origin:
+      jdbc-url: jdbc:postgresql://${ORIGIN_DB_HOST}:${ORIGIN_DB_PORT}/${ORIGIN_DB_NAME}?sslmode=${ORIGIN_DB_SSLMODE:prefer}
+      username: ${ORIGIN_DB_USERNAME}
+      password: ${ORIGIN_DB_PASSWORD}
+      pool-name: monitoreofletx-origin-pool
+      maximum-pool-size: 3
+      minimum-idle: 1
+      read-only: true
+      # No bloquear el arranque si el origen no esta disponible en dev/ci.
+      initialization-fail-timeout: -1
+      # Schema del origen: ORIGIN_DB_SCHEMA=public en prod (default PostgreSQL).
+      connection-init-sql: "SET search_path TO ${ORIGIN_DB_SCHEMA:public}"
+
+  # --- Flyway (solo sobre datamartDataSource) ---
+  flyway:
+    schema: ${DATAMART_DB_SCHEMA:monitoreo_fletx}
+
+  # --- Sincronizacion (ventana movil) ---
+  sync:
+    ventana-dias: ${SYNC_VENTANA_DIAS:7}
+    cron: "${SYNC_CRON:0 0/15 * * * *}"
+    lock-at-most-for: PT14M
+    lock-at-least-for: PT1M
