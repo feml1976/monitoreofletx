@@ -69,10 +69,12 @@ Cada etapa termina con un **checklist de aprobación**: no se avanza a la siguie
 
 ### Checklist de aprobación — Etapa B
 
+- [x] Tipos de columna de la tabla destino confirmados contra Fletx real (no supuestos) — **gate ejecutado 2026-07-22**, ver `docs/verificacion-tipos-destino-v4.md` (~30 tablas verificadas, 6 hallazgos ⚠️ que rompen el supuesto obvio: `standby` es integer no boolean, `document`/`referencephone*` son bigint no varchar, `trailers.empty_weight` es varchar no numérico, `eventos_detalle` requiere cast a jsonb).
 - [ ] Tests de mapeo verdes (todas las columnas del SELECT, incluida `eventos_detalle`).
 - [ ] `EXPLAIN` del SELECT revisado contra Fletx real (vía Claude Desktop, solo lectura) — sin regresión de performance.
 - [ ] Migración V2 aplica limpio sobre schema `test_monitoreo_fletx` vacío.
-- [ ] Tipos de columna de la tabla destino confirmados contra Fletx real (no supuestos).
+
+**Prompt listo:** `docs/prompts/etapa-b-dominio-extraccion.md`.
 
 ---
 
