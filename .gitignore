@@ -1,0 +1,47 @@
+# === Java / Maven ===
+target/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+dependency-reduced-pom.xml
+
+# === Spring Boot ===
+*.log
+logs/
+application-local.yml
+application-local.properties
+
+# === Entorno / secretos — NUNCA commitear ===
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# === Docker ===
+**/docker-data/
+*.pid
+
+# === Claude Code — archivos de sesion local ===
+.claude/settings.local.json
+
+# === IntelliJ IDEA ===
+.idea/
+*.iml
+*.ipr
+*.iws
+/out/
+
+# === VS Code ===
+.vscode/
+*.code-workspace
+
+# === SO ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Otros ===
+*.tmp
+*.bak

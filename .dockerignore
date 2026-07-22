@@ -1,0 +1,30 @@
+# Secretos y entorno — nunca en la imagen
+.env
+.env.*
+
+# Control de versiones y metadata del proyecto
+.git/
+.gitignore
+.gitattributes
+
+# Documentación (no se necesita en runtime)
+docs/
+*.md
+
+# IDEs y editores
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Claude Code
+.claude/
+
+# Docker — evitar contextos recursivos
+docker-compose*.yml
+Dockerfile*
+
+# Directorios de compilación local (el build stage usa Maven dentro del contenedor)
+backend/target/
+/out/

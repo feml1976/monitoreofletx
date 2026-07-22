@@ -1,0 +1,12 @@
+# Normaliza a LF: se desarrolla desde Windows pero el CI corre en Linux.
+# Evita diffs ruidosos y problemas de line-endings en scripts (mvnw, workflows).
+* text=auto eol=lf
+
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf
+*.java text eol=lf
+
+# Binarios — nunca normalizar
+*.jar binary
