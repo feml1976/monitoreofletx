@@ -42,11 +42,13 @@ Verifica que estás en la raíz de `monitoreofletx`, rama `main`, con `REQUERIMI
 
 ## Pasos
 
-### Paso 1 — `.gitignore` / `.dockerignore`
+### Paso 1 — `.gitignore` / `.dockerignore` / `.gitattributes`
 
 Copia y adapta de `../torre_control` (Maven, `.env*`, IDE, volúmenes, logs, `target/`). `.dockerignore` excluye `.env*`, `.git`, `docs/`, `target/`, archivos de compose.
 
-- Commit: `chore: gitignore y dockerignore iniciales`
+Agrega también `.gitattributes` con `* text=auto eol=lf` (este repo se desarrolla desde Windows pero el CI corre en Linux — normaliza a LF para evitar diffs ruidosos y problemas de line-endings en scripts; `.md`/`.yml` incluidos).
+
+- Commit: `chore: gitignore, dockerignore y gitattributes iniciales`
 
 ### Paso 2 — `pom.xml` y esqueleto de paquetes
 
