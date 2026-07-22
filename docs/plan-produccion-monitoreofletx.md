@@ -92,11 +92,18 @@ Cada etapa termina con un **checklist de aprobación**: no se avanza a la siguie
 4. Servicio orquestador con métricas (counter de ciclos con tag `outcome`) y log estructurado con `run_id`.
 5. Scheduler + ShedLock (`lock-at-most-for` < intervalo del cron).
 
-### Checklist de aprobación — Etapa C
+### ✅ Checklist de aprobación — Etapa C — **APROBADA 2026-07-22** (commits 80993c6…d3c8fdc, 5 commits)
 
-- [ ] Suite de integración completa contra PostgreSQL real: hash sensible a cada campo, insert/update/skip, soft-delete, resurrección, fuera-de-ventana, concurrencia ShedLock, vista vigente.
-- [ ] Métrica de éxito (`outcome`) verificada: no se incrementa en fallo.
-- [ ] 0 warnings de compilación.
+- [x] Suite de integración completa: **66/66 tests verdes**, contenedor de test reiniciado en limpio antes de la corrida final. 0 warnings de compilación.
+- [x] Métrica de éxito (`outcome`) verificada — **leí el código fuente, no solo el reporte**: en `SincronizarSolicitudesService.sincronizar()`, los tres counters (`insertadosCounter`/`actualizadosCounter`/`omitidosCounter`) se incrementan únicamente después de que `upsert()` y `marcarObsoletos()` retornan sin excepción; el `catch` solo loguea y relanza. Confirmado también con 2 tests explícitos (`fallaEnUpsert_...`, `fallaEnMarcarObsoletos_...`).
+- [x] `computeHash` — leí `JdbcProyeccionAdapter.java` completo: cubre los 119 campos de negocio en orden canónico fijo, `eventos_detalle` incluido como texto crudo, los 6 hallazgos ⚠️ del documento de tipos correctamente tratados (`longField` para documentos/referencephones, `intField` para `standby`, `strField` para `peso_vacio`).
+- [x] Sentinel de nulos (`NULL_SENTINEL = " "`): **verifiqué contra el código real de Controlt** (`../torre_control/.../JdbcTorreControlProyeccionAdapter.java` línea 30) — es el mismo patrón exacto ya probado en producción, no una desviación ni un bug (el comentario de Claude Code decía "byte NUL" pero el valor real, en ambos proyectos, es un espacio; terminología imprecisa, comportamiento correcto y consistente).
+- [x] Upsert con `ON CONFLICT` + resurrección: `WHERE row_hash IS DISTINCT FROM EXCLUDED.row_hash OR deleted_at IS NOT NULL`, `deleted_at = NULL` explícito en el `DO UPDATE` — resurrección correcta incluso si el hash no cambió.
+- [x] `marcarObsoletos` con `unnest(bigint[])`, acotado por `fecha_solicitud` dentro de la ventana — no toca filas fuera de ella.
+- [x] Salvaguarda no solicitada pero acertada: si el origen devuelve una lista vacía, el servicio **omite** `marcarObsoletos` (seria mostrarlo como progreso real si un fallo silencioso del origen vaciara la ventana) — buen criterio de Claude Code, se deja documentada aquí para no perderla de vista.
+- [x] CI verde: [run 29963641304](https://github.com/feml1976/monitoreofletx/actions/runs/29963641304), 1m40s.
+
+**Desviaciones aceptadas:** el cast `::jsonb` explícito en el INSERT (necesario, el driver JDBC no lo hace implícito) y el test end-to-end adicional (cierra el hueco entre tests por componente y el ciclo real) — ambas mejoras razonables, no cambian el contrato.
 
 ---
 
