@@ -124,6 +124,8 @@ Cada etapa termina con un **checklist de aprobación**: no se avanza a la siguie
 - [ ] TLS confirmado en ambas conexiones; usuario de origen solo-SELECT verificado.
 - [ ] Checkpoints +2h/+24h/+48h sin anomalías no explicadas.
 
+**Runbook listo:** `docs/prompts/etapa-d-despliegue-linux-xps.md`. Pre-requisito bloqueante antes de arrancar: confirmar grants `SELECT` del usuario de origen sobre `liquidations`, `comply_destinations`, `booking_addresses`, `addresses`, `consecutive_ministries`, `businessproducts`, `productcodes` (tablas nuevas frente al alcance de Controlt).
+
 ---
 
 ## Etapa E — Backfill + observabilidad + cierre
