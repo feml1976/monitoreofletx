@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # GITHUB_TOKEN generado por Actions (scope packages:write via permissions arriba).
+      # Nunca un PAT: ningun secret manual en este workflow.
+      - name: Login a GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build de la imagen
+        run: docker build -t monitoreofletx:build .
+
+      - name: Tag y push (version + latest)
+        run: |
+          IMAGE=ghcr.io/${{ github.repository_owner }}/monitoreofletx
+          docker tag monitoreofletx:build "$IMAGE:${{ github.ref_name }}"
+          docker tag monitoreofletx:build "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.ref_name }}"
+          docker push "$IMAGE:latest"
