@@ -36,6 +36,10 @@
 --        eventos en 7 días) — es el evento "génesis", no una anomalía. Un
 --        INNER JOIN ahí descarta ese evento en el 100% de los requests.
 --        Corregido a LEFT JOIN sobre requeststatuses (ambos lados).
+--   [B11] BUG (detectado en el gate EXPLAIN de la Etapa B): el CTE "plantas"
+--        no tenía pushdown de ventana — agregaba TODO booking_addresses
+--        (1,7M filas) en cada ejecución. Mismo patrón que [B5]. Corregido con
+--        JOIN req_window; cost 333.125 -> 32.197 (10x), medido contra Fletx real.
 --
 -- AGREGADOS (solicitados + descubiertos en el gate):
 --   [A1] Cumplidos del viaje: comply_destinations (14.073 filas/30d, activa)
@@ -166,6 +170,12 @@ liquidacion AS (
 -- multi-entrega). Se agrega con STRING_AGG(DISTINCT ...) para devolver una
 -- sola fila por booking_id y no duplicar filas del request en el JOIN.
 plantas AS (
+    -- [B11] FIX (gate EXPLAIN Etapa B, 2026-07-22): faltaba el pushdown de
+    -- ventana. Sin el JOIN a req_window, este CTE agregaba booking_addresses
+    -- COMPLETA (1,7M filas en Fletx real) en cada ejecución, igual que el bug
+    -- [B5] ya corregido para "events". Con el pushdown: cost 333.125 -> 32.197
+    -- (Index Scan sobre index_booking_addresses_on_booking_id en vez de Seq
+    -- Scan completo). Medido contra Fletx real, misma ventana de 7 dias.
     SELECT
         ba.booking_id,
         STRING_AGG(DISTINCT ad.name, ', ' ORDER BY ad.name)
@@ -173,6 +183,7 @@ plantas AS (
         STRING_AGG(DISTINCT ad.name, ', ' ORDER BY ad.name)
             FILTER (WHERE ba.unload_address = true)                    AS planta_destino
     FROM booking_addresses ba
+    JOIN req_window w ON w.booking_id = ba.booking_id
     INNER JOIN addresses ad ON ad.id = ba.address_id
     GROUP BY ba.booking_id
 )

@@ -67,14 +67,17 @@ Cada etapa termina con un **checklist de aprobación**: no se avanza a la siguie
 4. Fixtures de test del origen con fechas generadas en `@BeforeAll` (nunca en initdb).
 5. Migración V2: tabla de destino (columnas = alias del SELECT de la v4, tipos verificados contra Fletx real), índice único de clave natural, índices de consulta, vista `v_monitoreo_fletx_vigente`.
 
-### Checklist de aprobación — Etapa B
+### ✅ Checklist de aprobación — Etapa B — **APROBADA 2026-07-22** (commits b9a2edf…9137e4d, 5 commits + fix post-gate)
 
-- [x] Tipos de columna de la tabla destino confirmados contra Fletx real (no supuestos) — **gate ejecutado 2026-07-22**, ver `docs/verificacion-tipos-destino-v4.md` (~30 tablas verificadas, 6 hallazgos ⚠️ que rompen el supuesto obvio: `standby` es integer no boolean, `document`/`referencephone*` son bigint no varchar, `trailers.empty_weight` es varchar no numérico, `eventos_detalle` requiere cast a jsonb).
-- [ ] Tests de mapeo verdes (todas las columnas del SELECT, incluida `eventos_detalle`).
-- [ ] `EXPLAIN` del SELECT revisado contra Fletx real (vía Claude Desktop, solo lectura) — sin regresión de performance.
-- [ ] Migración V2 aplica limpio sobre schema `test_monitoreo_fletx` vacío.
+- [x] Tipos de columna de la tabla destino confirmados contra Fletx real (no supuestos) — gate ejecutado 2026-07-22, ver `docs/verificacion-tipos-destino-v4.md` (~30 tablas, 6 hallazgos ⚠️). Claude Code confirmó explícitamente 2 de los 6 en el reporte, con evidencia de test (`"2.5 Ton"` para `peso_vacio`, `2` para `standby`).
+- [x] Tests de mapeo verdes: 18/18 (2 smoke + 16 de mapeo), corrida dos veces sin reiniciar el contenedor.
+- [x] Migración V2 aplicada limpio; confirmada con `\d solicitudes` contra `test_monitoreo_fletx`.
+- [x] `EXPLAIN` del SELECT revisado contra Fletx real (Claude Desktop) — **🔴 hallazgo real, corregido antes de aprobar**: el CTE `plantas` (agregado en la v4, [A8]) no tenía pushdown de ventana — agregaba las 1,7M filas completas de `booking_addresses` en cada ejecución, mismo patrón que el bug [B5] ya corregido en `events`. Costo medido: 333.125 → 32.197 (10x) tras agregar `JOIN req_window`. Corregido en `monitoreofletx-consulta-base-v4.sql` (etiquetado `[B11]`) y en `backend/src/main/resources/sql/consulta-base.sql`. Nota de proceso: este bug no se detectó en el gate de viabilidad original de `plantas` (turno anterior) porque esa validación probó cardinalidad/corrección de datos pero no revisó el plan de ejecución en el contexto del JOIN completo — exactamente el tipo de regresión que este checkpoint de EXPLAIN existe para atrapar.
+- [x] CI verde: [run 29956376907](https://github.com/feml1976/monitoreofletx/actions/runs/29956376907), 1m24s.
 
-**Prompt listo:** `docs/prompts/etapa-b-dominio-extraccion.md`.
+**Pendiente antes de Etapa C:** Claude Code debe correr `mvnw verify` de nuevo tras el fix del CTE `plantas` (el fix no cambia columnas ni semántica, solo el plan de ejecución — no debería romper tests, pero hay que confirmarlo, nunca asumir).
+
+**Prompt listo:** `docs/prompts/etapa-b-dominio-extraccion.md` (ejecutado).
 
 ---
 
