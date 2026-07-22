@@ -124,7 +124,9 @@ Cada etapa termina con un **checklist de aprobación**: no se avanza a la siguie
 - [ ] TLS confirmado en ambas conexiones; usuario de origen solo-SELECT verificado.
 - [ ] Checkpoints +2h/+24h/+48h sin anomalías no explicadas.
 
-**Runbook listo:** `docs/prompts/etapa-d-despliegue-linux-xps.md`. Pre-requisito bloqueante antes de arrancar: confirmar grants `SELECT` del usuario de origen sobre `liquidations`, `comply_destinations`, `booking_addresses`, `addresses`, `consecutive_ministries`, `businessproducts`, `productcodes` (tablas nuevas frente al alcance de Controlt).
+**Runbook listo:** `docs/prompts/etapa-d-despliegue-linux-xps.md`.
+
+**✅ Pre-requisito bloqueante resuelto (verificado 2026-07-22 vía conector de solo lectura):** el rol de origen ya en uso por Controlt tiene `SELECT` (y únicamente `SELECT` — sin `INSERT`/`UPDATE`/`DELETE`) sobre las 7 tablas nuevas del dataset de MonitoreoFletx: `liquidations`, `comply_destinations`, `booking_addresses`, `addresses`, `consecutive_ministries`, `businessproducts`, `productcodes`. Confirmado además que no es superusuario (`rolsuper=false`, `rolcreatedb=false`, `rolcreaterole=false`). **No se requiere ningún GRANT nuevo antes de desplegar** — mismo rol, sin cambios.
 
 ---
 

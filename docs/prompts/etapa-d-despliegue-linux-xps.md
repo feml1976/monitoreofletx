@@ -22,11 +22,9 @@
 
 ---
 
-## Paso 1 — Confirmar grants del usuario de origen sobre las tablas nuevas
+## Paso 1 — ✅ Grants del usuario de origen (ya verificado 2026-07-22)
 
-Antes de escribir el `.env` de producción, confirma (vía Claude Desktop, conector de solo lectura, o el DBA de Fletx) que el usuario de solo lectura que se va a usar tiene `SELECT` sobre: `liquidations`, `comply_destinations`, `booking_addresses`, `addresses`, `consecutive_ministries`, `businessproducts`, `productcodes` — estas no estaban en el alcance original de Controlt.
-
-**No continuar sin esto confirmado.**
+Confirmado vía conector de solo lectura: el rol de origen ya en uso por Controlt tiene `SELECT` — y únicamente `SELECT`, sin `INSERT`/`UPDATE`/`DELETE` — sobre las 7 tablas nuevas de este dataset: `liquidations`, `comply_destinations`, `booking_addresses`, `addresses`, `consecutive_ministries`, `businessproducts`, `productcodes`. No es superusuario. **No se requiere ningún GRANT nuevo**; usa el mismo rol/credenciales que Controlt para `ORIGIN_DB_*`.
 
 ## Paso 2 — Llevar el proyecto al servidor y traer la imagen
 
@@ -121,7 +119,7 @@ Y en `datarmart01`: `SELECT MAX(sincronizado_at) FROM monitoreo_fletx.solicitude
 
 ## ✅ Checklist de aprobación — Etapa D
 
-- [ ] Grants del usuario de origen confirmados sobre las 7 tablas nuevas del dataset.
+- [x] Grants del usuario de origen confirmados sobre las 7 tablas nuevas del dataset (verificado 2026-07-22, ver Paso 1).
 - [ ] Imagen publicada en GHCR y corriendo en `Linux-XPS`, puerto 8098, sin colisión con Controlt (8097).
 - [ ] Flyway aplicó V1+V2 limpio en la primera ejecución real contra `datarmart01`.
 - [ ] Health UP en ambos DataSources; ciclos cada 15 min visibles en logs/métricas.
