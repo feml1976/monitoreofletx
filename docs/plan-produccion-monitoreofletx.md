@@ -37,14 +37,22 @@ Cada etapa termina con un **checklist de aprobación**: no se avanza a la siguie
 
 **Blast radius:** ninguno — repo nuevo, sin consumidores.
 
-### Checklist de aprobación — Etapa A
+### ✅ Checklist de aprobación — Etapa A — **APROBADA 2026-07-22** (commits 9d3f64a…4f6a3b5, 10 commits)
 
-- [ ] CI verde en GitHub Actions con un test trivial + build de imagen exitoso.
-- [ ] `docker compose -f docker-compose.test.yml up -d` + `./mvnw -f backend/pom.xml verify` en verde localmente.
-- [ ] Fail-fast verificado: sin una variable crítica definida, el arranque falla explícito (no cae a localhost).
-- [ ] `mvnw` commiteado con bit de ejecución 100755.
-- [ ] `.env.example` sin ningún valor real; `.env` real fuera de git.
-- [ ] Push a GitHub con CI verde visible.
+- [x] CI verde en GitHub Actions: [run 29938568689](https://github.com/feml1976/monitoreofletx/actions/runs/29938568689), job `test-and-build`, 1m48s — verificado directamente (fetch de la página de resultados, no solo el reporte de Claude Code): `Status: Success`.
+- [x] `docker compose -f docker-compose.test.yml up -d` + `./mvnw -f backend/pom.xml verify` en verde localmente — 2/2 tests, corrido dos veces sin reiniciar el contenedor (fixtures inmunes al envejecimiento).
+- [x] Fail-fast verificado: `application.yml` confirmado (lectura directa) — `HOST/PORT/NAME/USERNAME/PASSWORD` de ambas BD sin default; solo `SCHEMA`/`SSLMODE` tienen default. Correcto incluso más estricto que Controlt (que sí defaultea el puerto).
+- [x] `mvnw` commiteado con bit de ejecución 100755 — confirmado (`git ls-files -s`).
+- [x] `.env.example` sin ningún valor real — confirmado (solo `COMPLETAR`, `localhost`, puertos, nombres de schema).
+- [x] Push a GitHub con CI verde visible.
+
+**Desviaciones aprobadas (todas documentadas en commits):**
+1. Puertos de BD sin default — interpretación correcta y más estricta de §9.1; no requiere acción.
+2. `.claude/` trackeado salvo `settings.local.json` — sigue §10 del `REQUERIMIENTO.md` al pie de la letra; verificado que `.claude/scheduled_tasks.lock` no quedó trackeado.
+3. `src/test/resources/application.yml` sin sufijo de perfil (en vez de `application-test.yml` + activación de perfil) — mejor que lo especificado en el prompt: elimina el riesgo de que CI olvide activar el perfil. Aprobado como mejora.
+4. Flyway V1=shedlock, tabla de destino diferida a Etapa B — pre-aprobada antes de ejecutar.
+
+**Nota no bloqueante:** el run de CI reporta 1 warning de GitHub (Node.js 20 deprecado en `actions/checkout@v4`/`actions/setup-java@v4`, GitHub los fuerza a Node 24). No afecta el build; se resuelve solo con bump de versión de esas actions en algún momento, sin urgencia.
 
 ---
 
