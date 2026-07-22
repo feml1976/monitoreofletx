@@ -1,0 +1,52 @@
+# =============================================================================
+# docker-compose.prod.yml — MonitoreoFletx en produccion
+#
+# Las BDs (datamart y origen Fletx) son externas: no se definen aqui.
+# Uso:
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml down     (respeta stop_grace_period)
+#
+# El archivo .env debe existir en el mismo directorio con TODAS las variables
+# de .env.example completadas. Permisos: chmod 600 .env
+# =============================================================================
+services:
+  monitoreofletx:
+    # Etapa D: imagen publicada por el workflow de release (GHCR) por tag semantico.
+    image: ghcr.io/feml1976/monitoreofletx:${MONITOREOFLETX_VERSION:-latest}
+    build: .                        # fallback: build local si no hay acceso a GHCR o para dev
+
+    # Todas las variables de entorno entran desde .env — nunca hardcodear credenciales aqui.
+    # Referencia: .env.example en el repo.
+    env_file: .env
+
+    environment:
+      TZ: America/Bogota            # el cron del scheduler (SYNC_CRON) usa esta zona horaria
+
+    restart: unless-stopped
+
+    # Debe ser mayor que spring.lifecycle.timeout-per-shutdown-phase (30s configurado en app).
+    stop_grace_period: 45s
+
+    ports:
+      # Actuator solo accesible localmente o via tunel — NO exponer directamente a internet.
+      # Si MANAGEMENT_PORT se cambia en .env, ajustar tambien el mapeo de puertos aqui
+      # y el test del healthcheck.
+      - "127.0.0.1:8098:8098"
+
+    mem_limit: 1g
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    healthcheck:
+      # wget incluido en eclipse-temurin:21-jre-alpine (BusyBox).
+      # Si se cambia la imagen base a una sin wget, reemplazar por:
+      #   test: ["CMD-SHELL", "curl -sf http://localhost:8098/actuator/health || exit 1"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8098/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s

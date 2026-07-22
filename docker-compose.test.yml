@@ -1,0 +1,22 @@
+# PostgreSQL de PRUEBAS. Puerto 5438 (no 5432, no 5437 de Controlt). NUNCA H2 ni TestContainers.
+# Crea schemas test_monitoreo_fletx (destino) y test_origen_mf (subconjunto del origen)
+# y siembra fixtures mediante los scripts de docker/init-test (orden alfabetico).
+services:
+  postgres-test:
+    image: postgres:16
+    container_name: monitoreofletx-postgres-test
+    environment:
+      POSTGRES_DB: monitoreofletx_test
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+    ports:
+      - "5438:5432"
+    volumes:
+      - ./docker/init-test:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d monitoreofletx_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    tmpfs:
+      - /var/lib/postgresql/data    # efimero: cada corrida arranca limpio

@@ -1,0 +1,24 @@
+# PostgreSQL de DESARROLLO para el destino (datamart). Puerto 5438 (no 5432, no 5437 de Controlt).
+# El nombre de servicio/BD "monitoreofletx" es el default local de desarrollo.
+# Las credenciales se toman de .env (no se hardcodean).
+services:
+  datamart:
+    image: postgres:16
+    container_name: monitoreofletx-datamart-dev
+    environment:
+      POSTGRES_DB: monitoreofletx
+      POSTGRES_USER: ${DATAMART_DB_USERNAME}
+      POSTGRES_PASSWORD: ${DATAMART_DB_PASSWORD}
+    ports:
+      - "5438:5432"
+    volumes:
+      - monitoreofletx_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATAMART_DB_USERNAME} -d monitoreofletx"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  monitoreofletx_dev_data:
